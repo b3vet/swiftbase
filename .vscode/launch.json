@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:swiftbase}",
+            "name": "Debug swiftbase",
+            "target": "swiftbase",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug swiftbase"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:swiftbase}",
+            "name": "Release swiftbase",
+            "target": "swiftbase",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release swiftbase"
+        }
+    ]
+}

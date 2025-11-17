@@ -1,0 +1,31 @@
+{
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8090,
+    "environment": "development"
+  },
+  "database": {
+    "path": "./data/swiftbase.db",
+    "maxConnections": 10,
+    "enableWAL": true
+  },
+  "auth": {
+    "jwtSecret": "development-secret-change-in-production",
+    "accessTokenExpiry": 15,
+    "refreshTokenExpiry": 7,
+    "bcryptCost": 12
+  },
+  "storage": {
+    "path": "./data/storage",
+    "maxFileSize": 104857600
+  },
+  "cache": {
+    "enabled": true,
+    "ttl": 300,
+    "maxSize": 1000
+  },
+  "logging": {
+    "level": "debug",
+    "format": "json"
+  }
+}
