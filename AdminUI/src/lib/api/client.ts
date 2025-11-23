@@ -118,10 +118,10 @@ class ApiClient {
       url += `?${queryString}`
     }
 
-    // Build headers
-    const requestHeaders: HeadersInit = {
+    // Build headers - convert HeadersInit to Record<string, string>
+    const requestHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...headers
+      ...(headers as Record<string, string>)
     }
 
     // Add authorization header if authenticated
@@ -275,26 +275,14 @@ class ApiClient {
     return this.request<T>(endpoint, { method: 'DELETE', ...config })
   }
 
-  // Upload file with multipart/form-data
+  // Upload file as raw binary with headers
   async upload<T = any>(
     endpoint: string,
     file: File,
     metadata?: Record<string, any>,
     onProgress?: (progress: number) => void
   ): Promise<ApiResponse<T>> {
-    const formData = new FormData()
-    formData.append('file', file)
-
-    if (metadata) {
-      formData.append('metadata', JSON.stringify(metadata))
-    }
-
     const accessToken = this.getAccessToken()
-    const headers: HeadersInit = {}
-
-    if (accessToken) {
-      headers['Authorization'] = `Bearer ${accessToken}`
-    }
 
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest()
@@ -329,11 +317,22 @@ class ApiClient {
 
       xhr.open('POST', `${this.baseURL}${endpoint}`)
 
-      Object.entries(headers).forEach(([key, value]) => {
-        xhr.setRequestHeader(key, value)
-      })
+      // Set headers
+      if (accessToken) {
+        xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`)
+      }
 
-      xhr.send(formData)
+      // Send filename and content type as headers (backend expects these)
+      xhr.setRequestHeader('X-Filename', file.name)
+      xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+
+      // Send metadata as header if provided
+      if (metadata) {
+        xhr.setRequestHeader('X-Metadata', JSON.stringify(metadata))
+      }
+
+      // Send raw file data
+      xhr.send(file)
     })
   }
 }

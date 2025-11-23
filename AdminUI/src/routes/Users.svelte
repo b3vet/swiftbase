@@ -25,12 +25,12 @@
     error = null
 
     try {
-      const response = await usersApi.list()
+      const response = await usersApi.getAll()
 
-      if (response.success) {
-        users = response.data
+      if (response.success && response.data) {
+        users = response.data.users || []
       } else {
-        error = response.error || 'Failed to load users'
+        error = response.error ?? 'Failed to load users'
         notificationsStore.error(error)
       }
     } catch (err) {
@@ -134,9 +134,7 @@
     isSubmitting = true
 
     try {
-      const response = await usersApi.update(user.id, {
-        email_verified: true
-      })
+      const response = await usersApi.verifyEmail(user.id)
 
       if (response.success) {
         notificationsStore.success('User verified successfully')
@@ -144,7 +142,7 @@
 
         // Update the selected user if it's the detail view
         if (selectedUser?.id === user.id) {
-          selectedUser = response.data
+          selectedUser = response.data.user ?? null
         }
       } else {
         throw new Error(response.error || 'Failed to verify user')
@@ -164,11 +162,13 @@
 
   function openEditModal(user: User) {
     selectedUser = user
+    showDetailModal = false  // Close detail modal if open
     showEditModal = true
   }
 
   function openDeleteModal(user: User) {
     selectedUser = user
+    showDetailModal = false  // Close detail modal if open
     showDeleteModal = true
   }
 

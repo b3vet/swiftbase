@@ -6,11 +6,13 @@ import NIOCore
 public struct QueryController: Sendable {
     private let queryService: QueryService
     private let jwtService: JWTService
+    private let savedQueryService: SavedQueryService?
     private let logger: LoggerService
 
-    public init(queryService: QueryService, jwtService: JWTService) {
+    public init(queryService: QueryService, jwtService: JWTService, savedQueryService: SavedQueryService? = nil) {
         self.queryService = queryService
         self.jwtService = jwtService
+        self.savedQueryService = savedQueryService
         self.logger = LoggerService.shared
     }
 
@@ -105,5 +107,79 @@ public struct QueryController: Sendable {
             status: .ok,
             body: .init(byteBuffer: ByteBuffer(string: jsonString))
         )
+    }
+
+    // MARK: - Execute Saved Query by Name
+
+    /// POST /api/query/execute/:queryName
+    nonisolated public func executeByName(_ request: Request, context: some RequestContext) async throws -> QueryResponse {
+        // Validate authentication
+        let claims = try await AuthHelpers.validateAndExtractClaims(from: request, jwtService: jwtService)
+
+        guard let savedQueryService = self.savedQueryService else {
+            throw HTTPError(.internalServerError, message: "Saved query service not available")
+        }
+
+        // Get query name from path parameter
+        guard let queryName = context.parameters.get("queryName", as: String.self) else {
+            throw HTTPError(.badRequest, message: "Query name is required")
+        }
+
+        logger.info("Executing saved query '\(queryName)' by \(claims.type) '\(claims.sub)'")
+
+        // Get the saved query
+        guard let savedQuery = try await savedQueryService.getByName(queryName) else {
+            throw HTTPError(.notFound, message: "Saved query '\(queryName)' not found")
+        }
+
+        // Parse the query JSON
+        guard let queryData = savedQuery.queryJson.data(using: .utf8),
+              let queryDict = try? JSONSerialization.jsonObject(with: queryData) as? [String: Any] else {
+            throw HTTPError(.internalServerError, message: "Failed to parse saved query")
+        }
+
+        // Parse data JSON if present and convert to AnyCodable
+        var dataCodable: AnyCodable?
+        if let dataJsonString = savedQuery.dataJson,
+           let dataData = dataJsonString.data(using: .utf8),
+           let data = try? JSONSerialization.jsonObject(with: dataData) {
+            dataCodable = AnyCodable(data)
+        }
+
+        // Parse action
+        guard let action = QueryAction(rawValue: savedQuery.action) else {
+            throw HTTPError(.badRequest, message: "Invalid query action: \(savedQuery.action)")
+        }
+
+        // Convert query dict to MongoQuery by encoding/decoding
+        var mongoQuery: MongoQuery?
+        if !queryDict.isEmpty {
+            let queryData = try JSONSerialization.data(withJSONObject: queryDict)
+            mongoQuery = try? JSONDecoder().decode(MongoQuery.self, from: queryData)
+        }
+
+        // Build QueryRequest
+        let queryRequest = QueryRequest(
+            action: action,
+            collection: savedQuery.collectionId,
+            query: mongoQuery,
+            data: dataCodable
+        )
+
+        logger.debug("Executing saved query: action=\(action.rawValue), collection=\(savedQuery.collectionId)")
+
+        // Execute the query
+        do {
+            let response = try await queryService.execute(queryRequest)
+            return response
+        } catch let error as QueryParseError {
+            logger.error("Query parse error: \(error.description)")
+            throw HTTPError(.badRequest, message: error.description)
+        } catch let error as HTTPError {
+            throw error
+        } catch {
+            logger.error("Query execution error: \(error.localizedDescription)")
+            throw HTTPError(.internalServerError, message: "Query execution failed: \(error.localizedDescription)")
+        }
     }
 }

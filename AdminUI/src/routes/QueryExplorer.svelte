@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import type { SavedQuery } from '@lib/types'
+  import { savedQueryToQueryRequest } from '@lib/types'
   import { collectionsStore, notificationsStore } from '@lib/stores'
   import { queryApi } from '@lib/api'
-  import { storage, generateId } from '@lib/utils'
+  import * as savedQueriesApi from '@lib/api/savedQueries'
   import { Card, Modal, Button, Input, Textarea, Alert } from '@components/common'
   import { QueryEditor, QueryResults, SavedQueries } from '@components/query'
 
@@ -11,6 +12,7 @@
   let queryResult = $state<any>(null)
   let executionTime = $state<number | undefined>(undefined)
   let savedQueries = $state<SavedQuery[]>([])
+  let isLoadingSavedQueries = $state(false)
   let showSaveModal = $state(false)
   let currentQuery = $state<any>(null)
   let loadedQuery = $state<any>(null)
@@ -26,16 +28,20 @@
 
   onMount(async () => {
     await collectionsStore.fetchAll()
-    loadSavedQueries()
+    await loadSavedQueries()
   })
 
-  function loadSavedQueries() {
-    const saved = storage.get<SavedQuery[]>('saved_queries') || []
-    savedQueries = saved
-  }
-
-  function saveSavedQueries() {
-    storage.set('saved_queries', savedQueries)
+  async function loadSavedQueries() {
+    isLoadingSavedQueries = true
+    try {
+      savedQueries = await savedQueriesApi.getSavedQueries()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load saved queries'
+      notificationsStore.error(message)
+      savedQueries = []
+    } finally {
+      isLoadingSavedQueries = false
+    }
   }
 
   async function handleExecute(query: any) {
@@ -82,41 +88,57 @@
     showSaveModal = true
   }
 
-  function handleSaveQuery() {
+  async function handleSaveQuery() {
     if (!saveName.trim()) {
       saveError = 'Query name is required'
       return
     }
 
-    const newQuery: SavedQuery = {
-      id: generateId(),
-      name: saveName,
-      description: saveDescription || undefined,
-      query: currentQuery,
-      created_at: new Date().toISOString()
+    if (!currentQuery) {
+      saveError = 'No query to save'
+      return
     }
 
-    savedQueries = [...savedQueries, newQuery]
-    saveSavedQueries()
+    try {
+      const createRequest: savedQueriesApi.CreateSavedQueryRequest = {
+        name: saveName,
+        description: saveDescription || undefined,
+        collection_id: currentQuery.collection,
+        action: currentQuery.action,
+        query: currentQuery.query || {},
+        data: currentQuery.data
+      }
 
-    showSaveModal = false
-    notificationsStore.success('Query saved successfully')
+      const newQuery = await savedQueriesApi.createSavedQuery(createRequest)
+      savedQueries = [...savedQueries, newQuery]
+
+      showSaveModal = false
+      notificationsStore.success('Query saved successfully')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to save query'
+      saveError = message
+      notificationsStore.error(message)
+    }
   }
 
   function handleLoadQuery(query: SavedQuery) {
-    // Debug: Log the saved query structure
-    console.log('Loading saved query:', query)
-    console.log('Query data:', query.query)
+    // Convert SavedQuery to QueryRequest format for the editor
+    const queryRequest = savedQueryToQueryRequest(query)
 
     // Set the loaded query which will trigger the editor to update
-    loadedQuery = query.query
+    loadedQuery = queryRequest
     notificationsStore.info(`Loaded query: ${query.name}`)
   }
 
-  function handleDeleteQuery(query: SavedQuery) {
-    savedQueries = savedQueries.filter((q) => q.id !== query.id)
-    saveSavedQueries()
-    notificationsStore.success('Query deleted')
+  async function handleDeleteQuery(query: SavedQuery) {
+    try {
+      await savedQueriesApi.deleteSavedQuery(query.name)
+      savedQueries = savedQueries.filter((q) => q.id !== query.id)
+      notificationsStore.success('Query deleted')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete query'
+      notificationsStore.error(message)
+    }
   }
 </script>
 

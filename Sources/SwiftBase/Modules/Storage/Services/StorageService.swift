@@ -36,7 +36,8 @@ public actor StorageService {
         originalFilename: String,
         contentType: String? = nil,
         metadata: [String: String] = [:],
-        uploadedBy: String?
+        userId: String? = nil,
+        adminId: String? = nil
     ) async throws -> FileMetadata {
         // Validate file size
         guard data.count <= maxFileSize else {
@@ -71,7 +72,8 @@ public actor StorageService {
             size: data.count,
             path: filePath,
             metadata: metadata,
-            uploadedBy: uploadedBy
+            userId: userId,
+            adminId: adminId
         )
 
         // Save to database
@@ -158,7 +160,8 @@ public actor StorageService {
 
         // Check permissions (users can only delete their own files, admins can delete any)
         if !isAdmin {
-            guard let uploadedBy = metadata.uploadedBy, uploadedBy == userId else {
+            // User must own the file (file.userId must match their userId)
+            guard let fileUserId = metadata.userId, fileUserId == userId else {
                 throw StorageError.unauthorized
             }
         }
@@ -185,7 +188,8 @@ public actor StorageService {
 
     /// List files with pagination and filtering
     public func listFiles(
-        uploadedBy: String? = nil,
+        userId: String? = nil,
+        adminId: String? = nil,
         contentType: String? = nil,
         limit: Int = 50,
         offset: Int = 0
@@ -193,10 +197,13 @@ public actor StorageService {
         try await dbService.read { db in
             var query = FileMetadata.order(Column("created_at").desc)
 
-            // Filter by uploader
-            if let uploadedBy = uploadedBy {
-                query = query.filter(Column("uploaded_by") == uploadedBy)
+            // Filter by owner
+            if let userId = userId {
+                query = query.filter(Column("user_id") == userId)
+            } else if let adminId = adminId {
+                query = query.filter(Column("admin_id") == adminId)
             }
+            // If both are nil, return all files (admin viewing all)
 
             // Filter by content type
             if let contentType = contentType {
@@ -218,7 +225,8 @@ public actor StorageService {
     /// Search files by original name
     public func searchFiles(
         query: String,
-        uploadedBy: String? = nil,
+        userId: String? = nil,
+        adminId: String? = nil,
         limit: Int = 50
     ) async throws -> [FileMetadata] {
         try await dbService.read { db in
@@ -226,9 +234,13 @@ public actor StorageService {
                 .filter(Column("original_name").like("%\(query)%"))
                 .order(Column("created_at").desc)
 
-            if let uploadedBy = uploadedBy {
-                sqlQuery = sqlQuery.filter(Column("uploaded_by") == uploadedBy)
+            // Filter by owner
+            if let userId = userId {
+                sqlQuery = sqlQuery.filter(Column("user_id") == userId)
+            } else if let adminId = adminId {
+                sqlQuery = sqlQuery.filter(Column("admin_id") == adminId)
             }
+            // If both are nil, return all matching files (admin viewing all)
 
             return try sqlQuery.limit(limit).fetchAll(db)
         }
@@ -240,7 +252,7 @@ public actor StorageService {
     public func getUserStorageStats(userId: String) async throws -> StorageStats {
         try await dbService.read { db in
             let files = try FileMetadata
-                .filter(Column("uploaded_by") == userId)
+                .filter(Column("user_id") == userId)
                 .fetchAll(db)
 
             let totalSize = files.reduce(0) { $0 + $1.size }

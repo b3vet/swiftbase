@@ -5,9 +5,7 @@ export interface FileMetadata {
   original_name: string
   content_type: string
   size: number
-  path: string
-  metadata: Record<string, any>
-  uploaded_by?: string
+  url: string
   created_at: string
 }
 

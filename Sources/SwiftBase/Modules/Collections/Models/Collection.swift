@@ -12,6 +12,12 @@ public struct Collection: Codable, Sendable {
     public var createdAt: Date
     public var updatedAt: Date
 
+    enum CodingKeys: String, CodingKey {
+        case id, name, schema, indexes, metadata
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+
     public init(
         id: String,
         name: String,

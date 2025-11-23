@@ -14,12 +14,18 @@ public actor QueryService {
     private let sqlBuilder: SQLBuilder
     private let logger: LoggerService
     private var customQueries: [String: CustomQuery] = [:]
+    nonisolated(unsafe) private var broadcastService: BroadcastService?
 
     public init(dbService: DatabaseService) {
         self.dbService = dbService
         self.parser = QueryParser()
         self.sqlBuilder = SQLBuilder()
         self.logger = LoggerService.shared
+    }
+
+    /// Set the broadcast service for realtime events
+    public func setBroadcastService(_ broadcastService: BroadcastService) {
+        self.broadcastService = broadcastService
     }
 
     /// Get collection ID from collection name
@@ -217,9 +223,22 @@ public actor QueryService {
 
         logger.info("Created document '\(documentId)' in collection '\(request.collection)'")
 
-        // Return created document
+        // Add document ID
         documentData["id"] = documentId
-        return QueryResponse(success: true, data: AnyCodable(documentData))
+
+        // Create response
+        let response = QueryResponse(success: true, data: AnyCodable(documentData))
+
+        // Broadcast create event (after creating response, before return)
+        if let broadcastService = self.broadcastService {
+            await broadcastService.broadcastCreate(
+                collection: request.collection,
+                documentId: documentId,
+                document: documentData
+            )
+        }
+
+        return response
     }
 
     /// Execute an update query
@@ -230,6 +249,18 @@ public actor QueryService {
 
         let collectionId = try await getCollectionId(name: request.collection)
         let parsedQuery = try parser.parse(request.query)
+
+        // Get the document IDs before update for broadcasting
+        let (selectSql, selectArgs) = try sqlBuilder.buildSelect(
+            collectionId: collectionId,
+            parsedQuery: parsedQuery
+        )
+
+        let documentIds = try await dbService.read { db in
+            let rows = try Row.fetchAll(db, sql: selectSql, arguments: StatementArguments(selectArgs))
+            return rows.compactMap { $0["id"] as? String }
+        }
+
         let queries = try sqlBuilder.buildUpdate(
             collectionId: collectionId,
             parsedQuery: parsedQuery,
@@ -248,17 +279,45 @@ public actor QueryService {
 
         logger.info("Updated \(totalUpdated) document(s) in collection '\(request.collection)'")
 
-        return QueryResponse(
+        // Create response
+        let response = QueryResponse(
             success: true,
             data: AnyCodable(["updated": totalUpdated]),
             count: totalUpdated
         )
+
+        // Broadcast update events for each updated document (after creating response)
+        if let broadcastService = self.broadcastService {
+            // Wrap in sendable container to satisfy Swift 6 concurrency
+            let sendableData = SendableJSONDict(dict: updateData)
+            for documentId in documentIds {
+                await broadcastService.broadcastUpdate(
+                    collection: request.collection,
+                    documentId: documentId,
+                    document: sendableData.dict
+                )
+            }
+        }
+
+        return response
     }
 
     /// Execute a delete query
     private func executeDelete(_ request: QueryRequest) async throws -> QueryResponse {
         let collectionId = try await getCollectionId(name: request.collection)
         let parsedQuery = try parser.parse(request.query)
+
+        // Get the document IDs before deletion for broadcasting
+        let (selectSql, selectArgs) = try sqlBuilder.buildSelect(
+            collectionId: collectionId,
+            parsedQuery: parsedQuery
+        )
+
+        let documentIds = try await dbService.read { db in
+            let rows = try Row.fetchAll(db, sql: selectSql, arguments: StatementArguments(selectArgs))
+            return rows.compactMap { $0["id"] as? String }
+        }
+
         let (sql, args) = try sqlBuilder.buildDelete(
             collectionId: collectionId,
             parsedQuery: parsedQuery
@@ -270,6 +329,16 @@ public actor QueryService {
         }
 
         logger.info("Deleted \(deletedCount) document(s) from collection '\(request.collection)'")
+
+        // Broadcast delete events for each deleted document
+        if let broadcastService = self.broadcastService {
+            for documentId in documentIds {
+                await broadcastService.broadcastDelete(
+                    collection: request.collection,
+                    documentId: documentId
+                )
+            }
+        }
 
         return QueryResponse(
             success: true,

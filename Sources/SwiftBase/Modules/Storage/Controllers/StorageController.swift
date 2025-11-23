@@ -21,7 +21,8 @@ public struct StorageController: Sendable {
     nonisolated public func uploadFile(_ request: Request, context: some RequestContext) async throws -> Response {
         // Validate authentication
         let claims = try await AuthHelpers.validateAndExtractClaims(from: request, jwtService: jwtService)
-        let userId = claims.sub
+        let ownerId = claims.sub
+        let isAdmin = claims.type == "admin"
 
         // Collect file data from request body stream
         var bodyData = Data()
@@ -49,13 +50,14 @@ public struct StorageController: Sendable {
             metadata = metadataDict
         }
 
-        // Upload file
+        // Upload file with correct owner column
         let fileMetadata = try await storageService.uploadFile(
             data: data,
             originalFilename: originalFilename,
             contentType: contentType,
             metadata: metadata,
-            uploadedBy: userId
+            userId: isAdmin ? nil : ownerId,
+            adminId: isAdmin ? ownerId : nil
         )
 
         // Return response
@@ -74,8 +76,25 @@ public struct StorageController: Sendable {
 
     /// Download a file
     nonisolated public func downloadFile(_ request: Request, context: some RequestContext) async throws -> Response {
-        // Validate authentication
-        _ = try await AuthHelpers.validateAndExtractClaims(from: request, jwtService: jwtService)
+        // Validate authentication - check header first, then query parameter
+        let token: String
+
+        if let authHeader = request.headers[.authorization] {
+            // Extract token from "Bearer <token>"
+            let components = authHeader.split(separator: " ")
+            guard components.count == 2, components[0] == "Bearer" else {
+                throw HTTPError(.unauthorized, message: "Invalid authorization header")
+            }
+            token = String(components[1])
+        } else if let tokenParam = request.uri.queryParameters.get("token") {
+            // Use token from query parameter
+            token = tokenParam
+        } else {
+            throw HTTPError(.unauthorized, message: "Authentication required")
+        }
+
+        // Validate the token
+        _ = try await jwtService.validateAccessToken(token)
 
         // Get file ID from path parameter
         guard let fileId = context.parameters.get("id") else {
@@ -93,7 +112,19 @@ public struct StorageController: Sendable {
         // Build response headers
         var headers: HTTPFields = [:]
         headers[.contentType] = metadata.contentType ?? "application/octet-stream"
-        headers[.contentDisposition] = "attachment; filename=\"\(metadata.originalName)\""
+
+        // Use 'inline' for browser-viewable files, 'attachment' for downloads
+        let contentType = metadata.contentType ?? ""
+        let isViewable = contentType.hasPrefix("image/") ||
+                        contentType.hasPrefix("video/") ||
+                        contentType.hasPrefix("audio/") ||
+                        contentType.contains("pdf")
+
+        if isViewable {
+            headers[.contentDisposition] = "inline; filename=\"\(metadata.originalName)\""
+        } else {
+            headers[.contentDisposition] = "attachment; filename=\"\(metadata.originalName)\""
+        }
 
         // Add range headers if applicable
         if let range = range {
@@ -182,7 +213,7 @@ public struct StorageController: Sendable {
     nonisolated public func listFiles(_ request: Request, context: some RequestContext) async throws -> Response {
         // Validate authentication
         let claims = try await AuthHelpers.validateAndExtractClaims(from: request, jwtService: jwtService)
-        let userId = claims.sub
+        let ownerId = claims.sub
         let isAdmin = claims.type == "admin"
 
         // Get query parameters
@@ -191,9 +222,9 @@ public struct StorageController: Sendable {
         let contentType = request.uri.queryParameters.get("contentType")
 
         // List files (users can only see their own, admins can see all)
-        let uploadedBy = isAdmin ? nil : userId
         let (files, total) = try await storageService.listFiles(
-            uploadedBy: uploadedBy,
+            userId: isAdmin ? nil : ownerId,
+            adminId: nil, // Don't filter by admin when listing, admins see all
             contentType: contentType,
             limit: min(limit, 100), // Cap at 100
             offset: max(offset, 0)
@@ -223,7 +254,7 @@ public struct StorageController: Sendable {
     nonisolated public func searchFiles(_ request: Request, context: some RequestContext) async throws -> Response {
         // Validate authentication
         let claims = try await AuthHelpers.validateAndExtractClaims(from: request, jwtService: jwtService)
-        let userId = claims.sub
+        let ownerId = claims.sub
         let isAdmin = claims.type == "admin"
 
         // Get query parameter
@@ -234,10 +265,10 @@ public struct StorageController: Sendable {
         let limit = Int(request.uri.queryParameters.get("limit") ?? "50") ?? 50
 
         // Search files
-        let uploadedBy = isAdmin ? nil : userId
         let files = try await storageService.searchFiles(
             query: query,
-            uploadedBy: uploadedBy,
+            userId: isAdmin ? nil : ownerId,
+            adminId: nil, // Don't filter by admin when searching, admins see all
             limit: min(limit, 100)
         )
 

@@ -1,7 +1,8 @@
 <script lang="ts">
+  import { onMount, onDestroy } from 'svelte'
   import type { FileMetadata } from '@lib/types'
   import { Button, Badge } from '@components/common'
-  import { formatBytes, formatRelativeTime } from '@lib/utils'
+  import { formatBytes, formatRelativeTime, createBlobUrl, revokeBlobUrl } from '@lib/utils'
 
   interface Props {
     files: FileMetadata[]
@@ -22,19 +23,20 @@
   }: Props = $props()
 
   let searchTerm = $state('')
+  let imageThumbnails = $state<Map<string, string>>(new Map())
 
   const filteredFiles = $derived.by(() => {
     if (!searchTerm) return files
 
     const term = searchTerm.toLowerCase()
     return files.filter((file) =>
-      file.name.toLowerCase().includes(term) ||
-      file.mime_type?.toLowerCase().includes(term)
+      file.original_name.toLowerCase().includes(term) ||
+      file.content_type?.toLowerCase().includes(term)
     )
   })
 
   function getFileIcon(file: FileMetadata): string {
-    const mimeType = file.mime_type || ''
+    const mimeType = file.content_type || ''
 
     if (mimeType.startsWith('image/')) {
       return 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z'
@@ -54,13 +56,7 @@
   }
 
   function isImageFile(file: FileMetadata): boolean {
-    return file.mime_type?.startsWith('image/') ?? false
-  }
-
-  function getFileUrl(file: FileMetadata): string {
-    // Construct file URL based on API base URL
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080'
-    return `${apiUrl}/api/files/${file.id}`
+    return file.content_type?.startsWith('image/') ?? false
   }
 
   function handlePreview(file: FileMetadata) {
@@ -78,6 +74,38 @@
   function handleCopyUrl(file: FileMetadata) {
     onCopyUrl?.(file)
   }
+
+  async function loadImageThumbnails() {
+    // Load thumbnails for visible image files only
+    for (const file of filteredFiles) {
+      if (isImageFile(file) && !imageThumbnails.has(file.id)) {
+        try {
+          const blobUrl = await createBlobUrl(file.id)
+          imageThumbnails = new Map(imageThumbnails).set(file.id, blobUrl)
+        } catch (error) {
+          console.error(`Failed to load thumbnail for ${file.id}:`, error)
+        }
+      }
+    }
+  }
+
+  function cleanupThumbnails() {
+    imageThumbnails.forEach((blobUrl) => {
+      revokeBlobUrl(blobUrl)
+    })
+    imageThumbnails = new Map()
+  }
+
+  // Load thumbnails when filtered files change
+  $effect(() => {
+    // Only reload if filteredFiles actually changed
+    const fileIds = filteredFiles.map(f => f.id).join(',')
+    loadImageThumbnails()
+  })
+
+  onDestroy(() => {
+    cleanupThumbnails()
+  })
 </script>
 
 <div class="space-y-4">
@@ -130,11 +158,17 @@
             onkeydown={(e) => e.key === 'Enter' && handlePreview(file)}
           >
             {#if isImageFile(file)}
-              <img
-                src={getFileUrl(file)}
-                alt={file.name}
-                class="h-full w-full object-cover"
-              />
+              {#if imageThumbnails.has(file.id)}
+                <img
+                  src={imageThumbnails.get(file.id)}
+                  alt={file.original_name}
+                  class="h-full w-full object-cover"
+                />
+              {:else}
+                <div class="flex items-center justify-center h-full">
+                  <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+                </div>
+              {/if}
             {:else}
               <svg class="h-16 w-16 text-secondary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={getFileIcon(file)} />
@@ -146,19 +180,14 @@
           <div class="p-4">
             <div class="flex items-start justify-between">
               <div class="flex-1 min-w-0">
-                <h3 class="text-sm font-medium text-secondary-900 truncate" title={file.name}>
-                  {file.name}
+                <h3 class="text-sm font-medium text-secondary-900 truncate" title={file.original_name}>
+                  {file.original_name}
                 </h3>
                 <div class="mt-1 flex items-center space-x-2 text-xs text-secondary-500">
                   <span>{formatBytes(file.size)}</span>
                   <span>•</span>
                   <span>{formatRelativeTime(file.created_at)}</span>
                 </div>
-                {#if file.mime_type}
-                  <div class="mt-2">
-                    <Badge variant="default" size="sm">{file.mime_type}</Badge>
-                  </div>
-                {/if}
               </div>
             </div>
 

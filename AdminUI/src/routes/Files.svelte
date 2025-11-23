@@ -23,12 +23,12 @@
     error = null
 
     try {
-      const response = await filesApi.list()
+      const response = await filesApi.getAll()
 
-      if (response.success) {
+      if (response.success && response.data) {
         files = response.data
       } else {
-        error = response.error || 'Failed to load files'
+        error = response.error ?? 'Failed to load files'
         notificationsStore.error(error)
       }
     } catch (err) {
@@ -44,7 +44,7 @@
 
     try {
       const uploadPromises = uploadFiles.map((file) =>
-        filesApi.upload(file, (progress) => {
+        filesApi.upload(file, undefined, (progress: number) => {
           // Could track progress per file here if needed
           console.log(`Uploading ${file.name}: ${progress}%`)
         })
@@ -93,7 +93,7 @@
       // Create a temporary link and trigger download
       const link = document.createElement('a')
       link.href = fileUrl
-      link.download = file.name
+      link.download = file.original_name
       link.target = '_blank'
       document.body.appendChild(link)
       link.click()
@@ -210,7 +210,7 @@
     {#if selectedFile}
       <div class="bg-secondary-50 p-4 rounded-lg">
         <p class="text-sm text-secondary-900">
-          <span class="font-medium">File:</span> {selectedFile.name}
+          <span class="font-medium">File:</span> {selectedFile.original_name}
         </p>
         <p class="text-sm text-secondary-500 mt-1">
           <span class="font-medium">ID:</span> {selectedFile.id}

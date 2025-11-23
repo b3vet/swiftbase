@@ -14,6 +14,16 @@ public struct User: Codable, Sendable {
     public var createdAt: Date
     public var updatedAt: Date
 
+    enum CodingKeys: String, CodingKey {
+        case id, email, metadata
+        case passwordHash = "password_hash"
+        case emailVerified = "email_verified"
+        case refreshTokens = "refresh_tokens"
+        case lastLogin = "last_login"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+
     public init(
         id: String,
         email: String,
@@ -104,6 +114,13 @@ public extension User {
         public let metadata: [String: String]
         public let lastLogin: Date?
         public let createdAt: Date
+
+        enum CodingKeys: String, CodingKey {
+            case id, email, metadata
+            case emailVerified = "email_verified"
+            case lastLogin = "last_login"
+            case createdAt = "created_at"
+        }
 
         public init(from user: User) {
             self.id = user.id

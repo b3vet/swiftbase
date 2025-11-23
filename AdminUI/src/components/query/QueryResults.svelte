@@ -18,11 +18,15 @@
   const isArray = $derived(Array.isArray(result?.data))
   const count = $derived(result?.count ?? (isArray ? result.data.length : null))
 
-  // Extract column headers from array data
+  // Extract column headers from array data - collect all unique keys from all results
   const columns = $derived(
     (!isArray || !result.data || result.data.length === 0)
       ? []
-      : Object.keys(result.data[0]).slice(0, 10) // Limit to first 10 columns
+      : Array.from(
+          new Set(
+            result.data.flatMap((item: any) => Object.keys(item))
+          )
+        ).slice(0, 20) // Limit to first 20 columns
   )
 
   function formatValue(value: any): string {

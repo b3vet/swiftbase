@@ -36,12 +36,13 @@
 
     isSubmitting = true
 
-    const success = await collectionsStore.update(selectedCollection.name, data)
+    const collectionName = selectedCollection.name
+    const success = await collectionsStore.update(collectionName, data as any)
 
     if (success) {
       showEditModal = false
       selectedCollection = null
-      notificationsStore.success(`Collection "${selectedCollection.name}" updated successfully`)
+      notificationsStore.success(`Collection "${collectionName}" updated successfully`)
     } else if (collectionsStore.error) {
       notificationsStore.error(collectionsStore.error)
     }

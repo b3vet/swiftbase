@@ -48,5 +48,15 @@ export const usersApi = {
   // Revoke all user sessions (admin only)
   async revokeSessions(id: string): Promise<ApiResponse<void>> {
     return apiClient.post<void>(`/api/admin/users/${id}/revoke-sessions`)
+  },
+
+  // Get user statistics (admin only)
+  async getStats(): Promise<ApiResponse<{
+    total_users: number
+    verified_users: number
+    active_users: number
+    recent_registrations: number
+  }>> {
+    return apiClient.get('/api/admin/users/stats')
   }
 }

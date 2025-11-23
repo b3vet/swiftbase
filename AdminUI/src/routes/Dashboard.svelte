@@ -1,15 +1,53 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { authStore, collectionsStore } from '@lib/stores'
+  import { usersApi, filesApi } from '@lib/api'
   import { router } from '@lib/router.svelte'
   import { Card, Badge, Spinner } from '@components/common'
   import { formatRelativeTime } from '@lib/utils'
 
   let isLoading = $state(true)
+  let userCount = $state(0)
+  let storageSize = $state('0 B')
+
+  // Calculate total documents from all collections
+  const totalDocuments = $derived(
+    collectionsStore.collections.reduce((sum, col) => sum + (col.documentCount || 0), 0)
+  )
+
+  // Format bytes to human-readable size
+  function formatBytes(bytes: number): string {
+    if (bytes === 0) return '0 B'
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)} MB`
+    return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`
+  }
 
   onMount(async () => {
     // Fetch collections data for statistics
     await collectionsStore.fetchAll()
+
+    // Fetch user statistics
+    try {
+      const response = await usersApi.getStats()
+      if (response.success && response.data) {
+        userCount = response.data.total_users || 0
+      }
+    } catch (err) {
+      console.error('Failed to load user stats:', err)
+    }
+
+    // Fetch storage statistics
+    try {
+      const response = await filesApi.getStats()
+      if (response.success && response.data) {
+        storageSize = formatBytes(response.data.totalSize)
+      }
+    } catch (err) {
+      console.error('Failed to load storage stats:', err)
+    }
+
     isLoading = false
   })
 
@@ -33,7 +71,7 @@
     },
     {
       title: 'Users',
-      value: '0',
+      value: userCount,
       icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z',
       color: 'text-green-600',
       description: 'Registered users',
@@ -41,14 +79,14 @@
     },
     {
       title: 'Documents',
-      value: '0',
+      value: totalDocuments,
       icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
       color: 'text-purple-600',
       description: 'Total documents'
     },
     {
       title: 'Storage',
-      value: '0 MB',
+      value: storageSize,
       icon: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z',
       color: 'text-orange-600',
       description: 'Files stored',
@@ -78,7 +116,7 @@
   <div class="flex items-center space-x-2">
     <Badge variant="success">System Online</Badge>
     <span class="text-sm text-secondary-600">
-      Last login: {authStore.admin?.last_login ? formatRelativeTime(authStore.admin.last_login) : 'Just now'}
+      Last login: {authStore.admin?.lastLogin ? formatRelativeTime(authStore.admin.lastLogin) : 'Just now'}
     </span>
   </div>
 

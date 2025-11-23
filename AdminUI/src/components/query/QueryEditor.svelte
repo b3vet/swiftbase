@@ -56,6 +56,7 @@
 
   const actions: QueryAction[] = ['find', 'findOne', 'create', 'update', 'delete', 'count']
   const needsData = $derived(action === 'create' || action === 'update')
+  const needsQuery = $derived(action !== 'create')
 
   function loadExample() {
     const examples: Record<QueryAction, any> = {
@@ -109,9 +110,9 @@
     }
 
     try {
-      // Get JSON from the editors
-      const query = queryContent.json
-      const data = needsData ? dataContent.json : undefined
+      // Get JSON from the editors - parse text mode if needed
+      const query = queryContent.text ? JSON.parse(queryContent.text) : queryContent.json
+      const data = needsData ? (dataContent.text ? JSON.parse(dataContent.text) : dataContent.json) : undefined
 
       await onExecute({
         action,
@@ -169,34 +170,36 @@
   </div>
 
   <!-- Query Editor -->
-  <div>
-    <div class="flex items-center justify-between mb-2">
-      <label class="block text-sm font-medium text-secondary-700">
-        Query (MongoDB Syntax)
-      </label>
-      <button
-        type="button"
-        class="text-xs text-primary-600 hover:text-primary-800 font-medium"
-        onclick={loadExample}
-      >
-        Load Example
-      </button>
-    </div>
+  {#if needsQuery}
+    <div>
+      <div class="flex items-center justify-between mb-2">
+        <label class="block text-sm font-medium text-secondary-700">
+          Query (MongoDB Syntax)
+        </label>
+        <button
+          type="button"
+          class="text-xs text-primary-600 hover:text-primary-800 font-medium"
+          onclick={loadExample}
+        >
+          Load Example
+        </button>
+      </div>
 
-    <div class="border border-secondary-300 rounded-lg overflow-hidden" style="height: 300px;">
-      <JSONEditor
-        bind:content={queryContent}
-        mode={Mode.text}
-        mainMenuBar={false}
-        statusBar={false}
-        readOnly={isLoading}
-      />
-    </div>
+      <div class="border border-secondary-300 rounded-lg overflow-hidden" style="height: 300px;">
+        <JSONEditor
+          bind:content={queryContent}
+          mode={Mode.text}
+          mainMenuBar={false}
+          statusBar={false}
+          readOnly={isLoading}
+        />
+      </div>
 
-    <p class="mt-2 text-xs text-secondary-500">
-      Use MongoDB-style query syntax. Operators: $eq, $ne, $gt, $gte, $lt, $lte, $in, $nin, $and, $or, $exists
-    </p>
-  </div>
+      <p class="mt-2 text-xs text-secondary-500">
+        Use MongoDB-style query syntax. Operators: $eq, $ne, $gt, $gte, $lt, $lte, $in, $nin, $and, $or, $exists
+      </p>
+    </div>
+  {/if}
 
   <!-- Data Editor (for create/update) -->
   {#if needsData}

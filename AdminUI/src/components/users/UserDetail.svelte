@@ -147,9 +147,7 @@
     <!-- User Metadata -->
     <Card title="Metadata">
       {#if user.metadata && Object.keys(user.metadata).length > 0}
-        <pre class="bg-secondary-50 p-4 rounded-lg overflow-x-auto text-sm">
-          <code>{formatJSON(user.metadata)}</code>
-        </pre>
+        <pre class="bg-secondary-50 p-4 rounded-lg overflow-x-auto text-sm"><code>{formatJSON(user.metadata)}</code></pre>
       {:else}
         <div class="text-center py-8">
           <svg class="mx-auto h-12 w-12 text-secondary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">

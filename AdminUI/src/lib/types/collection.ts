@@ -4,6 +4,7 @@ export interface Collection {
   name: string
   schema?: Record<string, any>
   indexes?: string[]
+  options?: Record<string, any>
   metadata?: Record<string, any>
   documentCount?: number
   createdAt: string

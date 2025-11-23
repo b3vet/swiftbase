@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Button } from '@components/common'
+  import { JSONEditor, Mode } from 'svelte-jsoneditor'
 
   interface KeyValue {
     key: string
@@ -36,6 +37,14 @@
 
   const httpMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
   let activeTab = $state<'params' | 'headers' | 'body'>('params')
+  let bodyContent = $state({ text: body || '{}' })
+
+  // Sync body with bodyContent.text
+  $effect(() => {
+    if (bodyContent.text !== undefined) {
+      body = bodyContent.text
+    }
+  })
 
   function addHeader() {
     headers = [...headers, { key: '', value: '', enabled: true }]
@@ -63,15 +72,6 @@
         body,
         useAuth
       })
-    }
-  }
-
-  function formatJson() {
-    try {
-      const parsed = JSON.parse(body)
-      body = JSON.stringify(parsed, null, 2)
-    } catch (err) {
-      // Invalid JSON, do nothing
     }
   }
 </script>
@@ -268,29 +268,22 @@
       <!-- Body Section -->
       {#if activeTab === 'body'}
         <div class="space-y-2">
-          <div class="flex justify-end">
-            <Button variant="outline" onclick={formatJson} size="sm">
-              <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M4 6h16M4 12h16m-7 6h7"
-                />
-              </svg>
-              Format JSON
-            </Button>
-          </div>
-          <textarea
-            bind:value={body}
-            placeholder={'{\n  "key": "value"\n}'}
-            class="w-full h-64 px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 font-mono text-sm"
-            disabled={method === 'GET' || method === 'DELETE'}
-          ></textarea>
           {#if method === 'GET' || method === 'DELETE'}
-            <p class="text-xs text-secondary-500">
-              Request body is not supported for {method} requests
-            </p>
+            <div class="text-center py-12 text-secondary-500">
+              <svg class="mx-auto h-12 w-12 text-secondary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              </svg>
+              <p class="mt-2 text-sm">Request body is not supported for {method} requests</p>
+            </div>
+          {:else}
+            <div class="border border-secondary-300 rounded-lg overflow-hidden" style="height: 300px;">
+              <JSONEditor
+                bind:content={bodyContent}
+                mode={Mode.text}
+                mainMenuBar={false}
+                statusBar={false}
+              />
+            </div>
           {/if}
         </div>
       {/if}

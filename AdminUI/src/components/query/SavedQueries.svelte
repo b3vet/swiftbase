@@ -39,6 +39,15 @@
         return 'default'
     }
   }
+
+  // Debug: log queries to see what data we're receiving
+  $effect(() => {
+    if (queries.length > 0) {
+      console.log('SavedQueries received:', queries)
+      console.log('First query created_at:', queries[0]?.created_at)
+      console.log('First query keys:', Object.keys(queries[0] || {}))
+    }
+  })
 </script>
 
 <div class="bg-white rounded-lg shadow-sm border border-secondary-200">
@@ -73,15 +82,15 @@
             <div class="flex-1">
               <div class="flex items-center space-x-2">
                 <h4 class="text-sm font-medium text-secondary-900">{query.name}</h4>
-                <Badge variant={getActionBadgeVariant(query.query.action)} size="sm">
-                  {query.query.action}
+                <Badge variant={getActionBadgeVariant(query.action)} size="sm">
+                  {query.action}
                 </Badge>
               </div>
               {#if query.description}
                 <p class="mt-1 text-sm text-secondary-600">{query.description}</p>
               {/if}
               <div class="mt-2 flex items-center space-x-4 text-xs text-secondary-500">
-                <span>Collection: <span class="font-medium">{query.query.collection}</span></span>
+                <span>Collection: <span class="font-medium">{query.collection_id}</span></span>
                 <span>Created {formatRelativeTime(query.created_at)}</span>
               </div>
             </div>

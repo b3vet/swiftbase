@@ -12,6 +12,15 @@ public struct Admin: Codable, Sendable {
     public var createdAt: Date
     public var updatedAt: Date
 
+    enum CodingKeys: String, CodingKey {
+        case id, username
+        case passwordHash = "password_hash"
+        case refreshTokens = "refresh_tokens"
+        case lastLogin = "last_login"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+
     public init(
         id: String,
         username: String,

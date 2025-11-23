@@ -23,7 +23,9 @@ public struct Migration {
         return [
             Migration001_CreateInitialTables(),
             Migration002_CreateIndexes(),
-            Migration003_CreateTriggers()
+            Migration003_CreateTriggers(),
+            Migration004_CreateSavedQueriesTable(),
+            Migration005_UpdateFilesOwnership()
         ]
     }
 }

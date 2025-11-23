@@ -1,10 +1,12 @@
 <script lang="ts">
   interface Props {
+    id?: string
     type?: 'text' | 'email' | 'password' | 'number' | 'search' | 'url' | 'tel'
     value?: string | number
     placeholder?: string
     label?: string
     error?: string
+    helptext?: string
     disabled?: boolean
     required?: boolean
     readonly?: boolean
@@ -20,11 +22,13 @@
   }
 
   let {
+    id,
     type = 'text',
     value = $bindable(''),
     placeholder = '',
     label,
     error,
+    helptext,
     disabled = false,
     required = false,
     readonly = false,
@@ -39,7 +43,7 @@
     onblur
   }: Props = $props()
 
-  const inputId = `input-${Math.random().toString(36).substring(2, 9)}`
+  const inputId = id ?? `input-${Math.random().toString(36).substring(2, 9)}`
 
   const baseClasses = 'block w-full rounded-lg border px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-offset-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
 
@@ -68,7 +72,7 @@
     {disabled}
     {required}
     {readonly}
-    {autocomplete}
+    autocomplete={autocomplete as any}
     {maxlength}
     {min}
     {max}
@@ -82,5 +86,7 @@
 
   {#if error}
     <p class="mt-1 text-sm text-red-600">{error}</p>
+  {:else if helptext}
+    <p class="mt-1 text-sm text-secondary-500">{helptext}</p>
   {/if}
 </div>

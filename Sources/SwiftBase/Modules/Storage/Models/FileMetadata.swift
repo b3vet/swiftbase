@@ -10,7 +10,8 @@ public struct FileMetadata: Codable, Sendable {
     public let size: Int
     public let path: String
     public let metadata: [String: String]
-    public let uploadedBy: String?
+    public let userId: String?
+    public let adminId: String?
     public let createdAt: Date
 
     enum CodingKeys: String, CodingKey {
@@ -21,7 +22,8 @@ public struct FileMetadata: Codable, Sendable {
         case size
         case path
         case metadata
-        case uploadedBy = "uploaded_by"
+        case userId = "user_id"
+        case adminId = "admin_id"
         case createdAt = "created_at"
     }
 
@@ -33,7 +35,8 @@ public struct FileMetadata: Codable, Sendable {
         size: Int,
         path: String,
         metadata: [String: String] = [:],
-        uploadedBy: String?,
+        userId: String? = nil,
+        adminId: String? = nil,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -43,7 +46,8 @@ public struct FileMetadata: Codable, Sendable {
         self.size = size
         self.path = path
         self.metadata = metadata
-        self.uploadedBy = uploadedBy
+        self.userId = userId
+        self.adminId = adminId
         self.createdAt = createdAt
     }
 }
@@ -70,6 +74,13 @@ public struct FileUploadResponse: Codable, Sendable {
         public let size: Int
         public let url: String
         public let createdAt: String
+
+        enum CodingKeys: String, CodingKey {
+            case id, filename, size, url
+            case originalName = "original_name"
+            case contentType = "content_type"
+            case createdAt = "created_at"
+        }
 
         public init(file: FileMetadata, baseURL: String = "") {
             self.id = file.id

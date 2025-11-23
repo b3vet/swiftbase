@@ -28,7 +28,8 @@
     event.preventDefault()
 
     try {
-      const data = content.json
+      // Get JSON from the editor - parse text mode if needed
+      const data = content.text ? JSON.parse(content.text) : content.json
       const success = await onSubmit(data)
 
       if (success) {

@@ -2,6 +2,7 @@
   import type { User } from '@lib/types'
   import { Input, Textarea, Button, Alert } from '@components/common'
   import { validation, parseJSON, formatJSON } from '@lib/utils'
+  import { JSONEditor, Mode } from 'svelte-jsoneditor'
 
   interface Props {
     user?: User | null
@@ -22,15 +23,15 @@
   let email = $state(user?.email || '')
   let password = $state('')
   let confirmPassword = $state('')
-  let metadataJson = $state(user?.metadata ? formatJSON(user.metadata) : '{}')
+  let metadataContent = $state({ text: user?.metadata ? formatJSON(user.metadata) : '{}' })
   let error = $state<string | null>(null)
 
-  const isEmailValid = $derived(validation.isValidEmail(email))
+  const isEmailValid = $derived(validation.isEmail(email))
   const isPasswordValid = $derived(
     isEditMode ? (password ? validation.isValidPassword(password) : true) : validation.isValidPassword(password)
   )
   const passwordsMatch = $derived(password === confirmPassword)
-  const isMetadataValid = $derived(validation.isValidJSON(metadataJson))
+  const isMetadataValid = $derived(validation.isValidJSON(metadataContent.text || '{}'))
 
   const canSubmit = $derived(
     email &&
@@ -40,14 +41,6 @@
     isMetadataValid &&
     !isLoading
   )
-
-  function formatMetadata() {
-    if (isMetadataValid) {
-      const parsed = parseJSON(metadataJson)
-      metadataJson = formatJSON(parsed)
-      error = null
-    }
-  }
 
   async function handleSubmit() {
     error = null
@@ -78,7 +71,8 @@
     }
 
     try {
-      const metadata = parseJSON(metadataJson)
+      // Parse JSON from editor text mode
+      const metadata = metadataContent.text ? JSON.parse(metadataContent.text) : {}
 
       await onSubmit({
         email,
@@ -136,49 +130,38 @@
 
   <!-- Metadata -->
   <div>
-    <div class="flex items-center justify-between mb-1">
-      <label for="metadata-json" class="block text-sm font-medium text-secondary-700">
+    <div class="flex items-center justify-between mb-2">
+      <label class="block text-sm font-medium text-secondary-700">
         Metadata (JSON)
       </label>
-      <div class="flex items-center space-x-2">
-        {#if isMetadataValid}
-          <span class="text-xs text-green-600 flex items-center">
-            <svg class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-            </svg>
-            Valid
-          </span>
-          <button
-            type="button"
-            class="text-xs text-primary-600 hover:text-primary-800"
-            onclick={formatMetadata}
-          >
-            Format
-          </button>
-        {:else}
-          <span class="text-xs text-red-600 flex items-center">
-            <svg class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-            Invalid
-          </span>
-        {/if}
-      </div>
+      {#if isMetadataValid}
+        <span class="text-xs text-green-600 flex items-center">
+          <svg class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+          Valid
+        </span>
+      {:else}
+        <span class="text-xs text-red-600 flex items-center">
+          <svg class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+          Invalid JSON
+        </span>
+      {/if}
     </div>
 
-    <textarea
-      id="metadata-json"
-      bind:value={metadataJson}
-      class="block w-full rounded-lg border {error && !isMetadataValid
-        ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-        : 'border-secondary-300 focus:border-primary-500 focus:ring-primary-500'} px-4 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-offset-1 transition-colors resize-y"
-      rows={6}
-      placeholder={'{\n  "role": "user",\n  "department": "Engineering"\n}'}
-      disabled={isLoading}
-      spellcheck={false}
-    ></textarea>
+    <div class="border border-secondary-300 rounded-lg overflow-hidden" style="height: 200px;">
+      <JSONEditor
+        bind:content={metadataContent}
+        mode={Mode.text}
+        mainMenuBar={false}
+        statusBar={false}
+        readOnly={isLoading}
+      />
+    </div>
 
-    <p class="mt-1 text-xs text-secondary-500">
+    <p class="mt-2 text-xs text-secondary-500">
       Custom JSON metadata for the user
     </p>
   </div>

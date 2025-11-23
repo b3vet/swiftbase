@@ -114,7 +114,7 @@
 
             <div class="mt-4 flex items-center justify-between text-sm">
               <span class="text-secondary-500">
-                Created {formatRelativeTime(collection.created_at)}
+                Created {formatRelativeTime(collection.createdAt)}
               </span>
             </div>
 
@@ -172,7 +172,7 @@
                 {/if}
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">
-                {formatRelativeTime(collection.created_at)}
+                {formatRelativeTime(collection.createdAt)}
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                 <button

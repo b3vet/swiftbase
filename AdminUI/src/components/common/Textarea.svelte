@@ -1,5 +1,6 @@
 <script lang="ts">
   interface Props {
+    id?: string
     value?: string
     placeholder?: string
     label?: string
@@ -16,6 +17,7 @@
   }
 
   let {
+    id,
     value = $bindable(''),
     placeholder = '',
     label,
@@ -31,7 +33,7 @@
     onblur
   }: Props = $props()
 
-  const textareaId = `textarea-${Math.random().toString(36).substring(2, 9)}`
+  const textareaId = id ?? `textarea-${Math.random().toString(36).substring(2, 9)}`
 
   const baseClasses = 'block w-full rounded-lg border px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-offset-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed resize-y'
 

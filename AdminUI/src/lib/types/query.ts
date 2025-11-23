@@ -63,10 +63,26 @@ export interface CustomQuery {
   updated_at: string
 }
 
+// Server-side saved query (matches API response)
 export interface SavedQuery {
   id: string
   name: string
   description?: string
-  query: QueryRequest
+  collection_id: string
+  action: string
+  query: Record<string, any>
+  data?: Record<string, any>
+  created_by?: string
   created_at: string
+  updated_at: string
+}
+
+// Helper to convert SavedQuery to QueryRequest for the query editor
+export function savedQueryToQueryRequest(savedQuery: SavedQuery): QueryRequest {
+  return {
+    action: savedQuery.action as QueryAction,
+    collection: savedQuery.collection_id,
+    query: savedQuery.query as any,
+    data: savedQuery.data
+  }
 }

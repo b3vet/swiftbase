@@ -1,5 +1,7 @@
 import Foundation
 import Hummingbird
+import HummingbirdWebSocket
+@_spi(WSInternal) import WSCore
 
 /// Main application class that manages the HTTP server and application lifecycle
 public struct App {
@@ -45,11 +47,25 @@ public struct App {
             sessionService: sessionService
         )
 
+        // Initialize realtime module (must be initialized early to wire up services)
+        let realtimeModule = await RealtimeModule(jwtService: jwtService, logger: logger)
+
         // Initialize query service and controller
         let queryService = QueryService(dbService: dbService)
+        await queryService.setBroadcastService(realtimeModule.broadcastService)
+
+        let savedQueryService = SavedQueryService(dbService: dbService, logger: logger)
         let queryController = QueryController(
             queryService: queryService,
-            jwtService: jwtService
+            jwtService: jwtService,
+            savedQueryService: savedQueryService
+        )
+
+        // Initialize saved query controller
+        let savedQueryController = SavedQueryController(
+            savedQueryService: savedQueryService,
+            jwtService: jwtService,
+            logger: logger
         )
 
         // Initialize collection service and controller
@@ -74,7 +90,18 @@ public struct App {
         let cleanupJob = CleanupJob(storageService: storageService)
         await cleanupJob.start()
 
-        let router = Router()
+        // Initialize user service and controller
+        let userService = UserService(
+            dbService: dbService,
+            passwordService: passwordService,
+            sessionService: sessionService
+        )
+        let userController = UserController(
+            userService: userService,
+            jwtService: jwtService
+        )
+
+        let router = Router(context: BasicWebSocketRequestContext.self)
 
         // Add global middleware (order matters!)
         // 1. CORS - handle preflight and add CORS headers
@@ -159,6 +186,20 @@ public struct App {
             .add(middleware: JWTMiddleware(jwtService: jwtService, requireAdmin: true))
             .get("/api/admin/queries", use: queryController.listCustomQueries)
 
+        // Saved queries (admin only)
+        router.group()
+            .add(middleware: JWTMiddleware(jwtService: jwtService, requireAdmin: true))
+            .get("/api/admin/saved-queries", use: savedQueryController.list)
+            .get("/api/admin/saved-queries/:name", use: savedQueryController.get)
+            .post("/api/admin/saved-queries", use: savedQueryController.create)
+            .put("/api/admin/saved-queries/:name", use: savedQueryController.update)
+            .delete("/api/admin/saved-queries/:name", use: savedQueryController.delete)
+
+        // Execute saved query by name (requires authentication)
+        router.group()
+            .add(middleware: JWTMiddleware(jwtService: jwtService))
+            .post("/api/query/execute/:queryName", use: queryController.executeByName)
+
         // Collection management (protected)
         router.group()
             .add(middleware: JWTMiddleware(jwtService: jwtService))
@@ -194,6 +235,18 @@ public struct App {
             .add(middleware: JWTMiddleware(jwtService: jwtService, requireAdmin: true))
             .post("/api/admin/storage/cleanup", use: storageController.cleanupOrphanedFiles)
 
+        // User management (admin only)
+        router.group()
+            .add(middleware: JWTMiddleware(jwtService: jwtService, requireAdmin: true))
+            .get("/api/admin/users", use: userController.listUsers)
+            .get("/api/admin/users/stats", use: userController.getUserStats)
+            .get("/api/admin/users/:id", use: userController.getUser)
+            .post("/api/admin/users", use: userController.createUser)
+            .put("/api/admin/users/:id", use: userController.updateUser)
+            .delete("/api/admin/users/:id", use: userController.deleteUser)
+            .post("/api/admin/users/:id/verify-email", use: userController.verifyEmail)
+            .post("/api/admin/users/:id/revoke-sessions", use: userController.revokeSessions)
+
         // Admin UI static file handler
         let adminHandler = AdminUIHandler(logger: logger)
 
@@ -206,8 +259,26 @@ public struct App {
             try await adminHandler.handle(request: request, context: context)
         }
 
-        // Create application
-        let app = Application(
+        // WebSocket endpoint for realtime subscriptions
+        router.ws("/api/realtime") { inbound, outbound, context in
+            let wsContext = WebSocketContext(request: context.request)
+            await realtimeModule.webSocketHub.handleConnection(
+                inbound: inbound,
+                outbound: outbound,
+                context: wsContext
+            )
+        }
+
+        // Realtime statistics endpoint (admin only)
+        router.group()
+            .add(middleware: JWTMiddleware(jwtService: jwtService, requireAdmin: true))
+            .get("/api/admin/realtime/stats") { _, _ -> RealtimeStatistics in
+                return await realtimeModule.getStatistics()
+            }
+
+        // Create application with WebSocket support
+        // Use buildApplication to ensure WebSocket upgrades are handled correctly
+        let app = buildApplication(
             router: router,
             configuration: .init(
                 address: .hostname(host, port: port)

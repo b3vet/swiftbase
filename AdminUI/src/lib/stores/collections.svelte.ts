@@ -38,8 +38,8 @@ function createCollectionsStore() {
         // Handle both array response and object with collections property
         if (Array.isArray(response.data)) {
           state.collections = response.data
-        } else if (response.data.collections) {
-          state.collections = response.data.collections
+        } else if (typeof response.data === 'object' && 'collections' in response.data) {
+          state.collections = (response.data as any).collections
         } else {
           state.collections = []
         }

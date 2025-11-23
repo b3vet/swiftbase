@@ -12,18 +12,22 @@ public struct JWTMiddleware<Context: RequestContext>: RouterMiddleware {
     }
 
     public func handle(_ request: Request, context: Context, next: (Request, Context) async throws -> Response) async throws -> Response {
-        // Extract token from Authorization header
-        guard let authHeader = request.headers[.authorization] else {
-            throw HTTPError(.unauthorized, message: "Missing Authorization header")
-        }
+        // Extract token from Authorization header or query parameter
+        let token: String
 
-        // Expect "Bearer <token>"
-        let parts = authHeader.split(separator: " ")
-        guard parts.count == 2, parts[0] == "Bearer" else {
-            throw HTTPError (.unauthorized, message: "Invalid Authorization header format")
+        if let authHeader = request.headers[.authorization] {
+            // Expect "Bearer <token>"
+            let parts = authHeader.split(separator: " ")
+            guard parts.count == 2, parts[0] == "Bearer" else {
+                throw HTTPError (.unauthorized, message: "Invalid Authorization header format")
+            }
+            token = String(parts[1])
+        } else if let tokenParam = request.uri.queryParameters.get("token") {
+            // Use token from query parameter
+            token = tokenParam
+        } else {
+            throw HTTPError(.unauthorized, message: "Missing authentication token")
         }
-
-        let token = String(parts[1])
 
         // Validate token
         let claims: AccessTokenClaims

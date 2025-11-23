@@ -49,5 +49,15 @@ export const filesApi = {
     metadata: Record<string, any>
   ): Promise<ApiResponse<FileMetadata>> {
     return apiClient.put<FileMetadata>(`/api/storage/files/${id}/metadata`, { metadata })
+  },
+
+  // Get storage statistics
+  async getStats(): Promise<ApiResponse<{
+    fileCount: number
+    totalSize: number
+    quota?: number
+    usedPercentage?: number
+  }>> {
+    return apiClient.get('/api/storage/stats')
   }
 }

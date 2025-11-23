@@ -70,9 +70,9 @@
 
     const data: CreateCollectionRequest = {
       name,
-      schema: schemaJson.trim() ? parseJSON(schemaJson) : undefined,
-      indexes: indexesJson.trim() ? parseJSON(indexesJson) : undefined,
-      options: optionsJson.trim() ? parseJSON(optionsJson) : undefined
+      schema: schemaJson.trim() ? parseJSON(schemaJson) ?? undefined : undefined,
+      indexes: indexesJson.trim() ? parseJSON(indexesJson) ?? undefined : undefined,
+      options: optionsJson.trim() ? parseJSON(optionsJson) ?? undefined : undefined
     }
 
     try {
