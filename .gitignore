@@ -26,3 +26,5 @@ TestingUtils
 **/Sources/SwiftBase/Resources/Config/production.json
 
 **/scratch*.md
+
+**/coverage
