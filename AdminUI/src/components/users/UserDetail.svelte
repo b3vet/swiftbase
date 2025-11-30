@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { User } from '@lib/types'
-  import { Card, Badge, Button } from '@components/common'
-  import { formatDate, formatRelativeTime, formatJSON } from '@lib/utils'
+  import { Card, Badge, Button, JsonViewer } from '@components/common'
+  import { formatDate, formatRelativeTime } from '@lib/utils'
 
   interface Props {
     user: User
@@ -147,7 +147,7 @@
     <!-- User Metadata -->
     <Card title="Metadata">
       {#if user.metadata && Object.keys(user.metadata).length > 0}
-        <pre class="bg-secondary-50 p-4 rounded-lg overflow-x-auto text-sm"><code>{formatJSON(user.metadata)}</code></pre>
+        <JsonViewer data={user.metadata} />
       {:else}
         <div class="text-center py-8">
           <svg class="mx-auto h-12 w-12 text-secondary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">

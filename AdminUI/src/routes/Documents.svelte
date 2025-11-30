@@ -4,7 +4,7 @@
   import { notificationsStore } from '@lib/stores'
   import { queryApi } from '@lib/api'
   import { formatDate } from '@lib/utils'
-  import { Card, Button, Modal, Spinner, Alert } from '@components/common'
+  import { Card, Button, Modal, Spinner, Alert, JsonViewer } from '@components/common'
   import { DocumentList, DocumentEditor } from '@components/documents'
 
   const collectionName = $derived(router.getParam('name') || '')
@@ -284,7 +284,7 @@
       <!-- Document Data -->
       <div>
         <h4 class="text-sm font-medium text-secondary-900 mb-2">Document Data</h4>
-        <pre class="bg-secondary-50 p-4 rounded-lg overflow-x-auto text-sm"><code>{JSON.stringify(selectedDocument.data, null, 2)}</code></pre>
+        <JsonViewer data={selectedDocument.data} />
       </div>
 
       <!-- Metadata -->

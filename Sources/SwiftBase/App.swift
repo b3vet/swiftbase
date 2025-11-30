@@ -282,9 +282,10 @@ public struct App {
                 return await realtimeModule.getStatistics()
             }
 
-        // Create application with WebSocket support
+        // Create application with WebSocket upgrade support
         let app = Application(
             router: router,
+            server: .http1WebSocketUpgrade(webSocketRouter: router),
             configuration: .init(
                 address: .hostname(host, port: port)
             )

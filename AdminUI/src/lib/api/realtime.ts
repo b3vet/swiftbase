@@ -60,6 +60,9 @@ class RealtimeClient {
       this.ws = null
     }
 
+    // Clear all subscriptions and callbacks to prevent memory leaks
+    this.eventCallbacks.clear()
+
     this.updateStatus(ConnectionStatus.DISCONNECTED)
     this.reconnectAttempts = 0
   }
@@ -191,16 +194,31 @@ class RealtimeClient {
   // Handle WebSocket message
   private handleMessage(event: MessageEvent): void {
     try {
-      const message = JSON.parse(event.data) as WebSocketMessage
+      const message = JSON.parse(event.data)
 
-      // Handle pong
+      // Handle pong (action-based)
       if (message.action === 'pong') {
         return
       }
 
-      // Handle realtime event
-      if (message.event) {
-        this.dispatchEvent(message.event)
+      // Handle system messages (type-based: welcome, subscribed, unsubscribed, error)
+      if (message.type) {
+        // These are control messages, not events to dispatch
+        console.log('WebSocket message:', message.type, message)
+        return
+      }
+
+      // Handle realtime event - the message itself is the event
+      // Server sends: {event: "create"|"update"|"delete", collection, document, documentId, timestamp}
+      if (message.event && message.collection) {
+        const realtimeEvent: RealtimeEvent = {
+          event: message.event,
+          collection: message.collection,
+          document: message.document || {},
+          documentId: message.documentId,
+          timestamp: message.timestamp || new Date().toISOString()
+        }
+        this.dispatchEvent(realtimeEvent)
       }
     } catch (error) {
       console.error('Failed to parse WebSocket message:', error)

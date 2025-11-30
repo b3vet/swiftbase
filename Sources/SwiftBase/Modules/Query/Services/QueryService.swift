@@ -286,16 +286,35 @@ public actor QueryService {
             count: totalUpdated
         )
 
-        // Broadcast update events for each updated document (after creating response)
-        if let broadcastService = self.broadcastService {
-            // Wrap in sendable container to satisfy Swift 6 concurrency
-            let sendableData = SendableJSONDict(dict: updateData)
-            for documentId in documentIds {
-                await broadcastService.broadcastUpdate(
-                    collection: request.collection,
-                    documentId: documentId,
-                    document: sendableData.dict
-                )
+        // Broadcast update events with the actual updated documents
+        if let broadcastService = self.broadcastService, !documentIds.isEmpty {
+            // Fetch the updated documents to broadcast
+            let updatedDocuments = try await dbService.read { db in
+                var docs: [SendableJSONDict] = []
+                for docId in documentIds {
+                    let sql = "SELECT id, data, created_at, updated_at FROM _documents WHERE id = ?"
+                    if let row = try Row.fetchOne(db, sql: sql, arguments: [docId]),
+                       let jsonString = row["data"] as? String,
+                       let jsonData = jsonString.data(using: .utf8),
+                       var document = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
+                        document["id"] = row["id"]
+                        document["_id"] = row["id"]
+                        document["created_at"] = row["created_at"]
+                        document["updated_at"] = row["updated_at"]
+                        docs.append(SendableJSONDict(dict: document))
+                    }
+                }
+                return docs
+            }
+
+            for doc in updatedDocuments {
+                if let docId = doc.dict["id"] as? String {
+                    await broadcastService.broadcastUpdate(
+                        collection: request.collection,
+                        documentId: docId,
+                        document: doc.dict
+                    )
+                }
             }
         }
 
@@ -307,15 +326,26 @@ public actor QueryService {
         let collectionId = try await getCollectionId(name: request.collection)
         let parsedQuery = try parser.parse(request.query)
 
-        // Get the document IDs before deletion for broadcasting
+        // Get the full documents before deletion for broadcasting
         let (selectSql, selectArgs) = try sqlBuilder.buildSelect(
             collectionId: collectionId,
             parsedQuery: parsedQuery
         )
 
-        let documentIds = try await dbService.read { db in
+        let documentsToDelete = try await dbService.read { db in
             let rows = try Row.fetchAll(db, sql: selectSql, arguments: StatementArguments(selectArgs))
-            return rows.compactMap { $0["id"] as? String }
+            return rows.compactMap { row -> SendableJSONDict? in
+                guard let jsonString = row["data"] as? String,
+                      let jsonData = jsonString.data(using: .utf8),
+                      var document = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+                    return nil
+                }
+                document["id"] = row["id"]
+                document["_id"] = row["id"]
+                document["created_at"] = row["created_at"]
+                document["updated_at"] = row["updated_at"]
+                return SendableJSONDict(dict: document)
+            }
         }
 
         let (sql, args) = try sqlBuilder.buildDelete(
@@ -330,13 +360,16 @@ public actor QueryService {
 
         logger.info("Deleted \(deletedCount) document(s) from collection '\(request.collection)'")
 
-        // Broadcast delete events for each deleted document
+        // Broadcast delete events with the deleted document data
         if let broadcastService = self.broadcastService {
-            for documentId in documentIds {
-                await broadcastService.broadcastDelete(
-                    collection: request.collection,
-                    documentId: documentId
-                )
+            for doc in documentsToDelete {
+                if let docId = doc.dict["id"] as? String {
+                    await broadcastService.broadcastDelete(
+                        collection: request.collection,
+                        documentId: docId,
+                        document: doc.dict
+                    )
+                }
             }
         }
 

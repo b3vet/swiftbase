@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { Badge } from '@components/common'
-  import { formatJSON } from '@lib/utils'
+  import { Badge, JsonViewer } from '@components/common'
 
   interface Props {
     result: any
@@ -127,7 +126,7 @@
 
     {:else}
       <!-- JSON View -->
-      <pre class="bg-secondary-50 p-4 rounded-lg overflow-x-auto text-sm"><code>{formatJSON(result.data)}</code></pre>
+      <JsonViewer data={result.data} />
     {/if}
   </div>
 </div>

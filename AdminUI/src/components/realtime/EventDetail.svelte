@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { RealtimeEvent } from '@lib/types'
-  import { Badge, Button } from '@components/common'
+  import { Badge, Button, JsonViewer } from '@components/common'
   import { formatDate, formatJSON } from '@lib/utils'
 
   interface Props {
@@ -100,22 +100,12 @@
   <!-- Document Data -->
   <div class="bg-white rounded-lg border border-secondary-200 p-6">
     <h4 class="text-sm font-semibold text-secondary-900 mb-4">Document Data</h4>
-
-    <div class="bg-secondary-50 rounded-lg p-4">
-      <pre class="text-sm overflow-x-auto">
-        <code>{formatJSON(event.document)}</code>
-      </pre>
-    </div>
+    <JsonViewer data={event.document} />
   </div>
 
   <!-- Full Event JSON -->
   <div class="bg-white rounded-lg border border-secondary-200 p-6">
     <h4 class="text-sm font-semibold text-secondary-900 mb-4">Full Event JSON</h4>
-
-    <div class="bg-secondary-50 rounded-lg p-4">
-      <pre class="text-sm overflow-x-auto">
-        <code>{formatJSON(event)}</code>
-      </pre>
-    </div>
+    <JsonViewer data={event} />
   </div>
 </div>

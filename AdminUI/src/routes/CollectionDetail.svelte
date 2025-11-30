@@ -2,8 +2,8 @@
   import { onMount } from 'svelte'
   import { router } from '@lib/router.svelte'
   import { collectionsStore } from '@lib/stores'
-  import { Card, Badge, Button, Spinner } from '@components/common'
-  import { formatRelativeTime, formatJSON } from '@lib/utils'
+  import { Card, Badge, Button, Spinner, JsonViewer } from '@components/common'
+  import { formatRelativeTime } from '@lib/utils'
 
   const collectionName = $derived(router.getParam('name') || '')
 
@@ -182,21 +182,21 @@
     <!-- Schema -->
     {#if collectionsStore.currentCollection.schema}
       <Card title="Schema">
-        <pre class="bg-secondary-50 p-4 rounded-lg overflow-x-auto text-sm"><code>{formatJSON(collectionsStore.currentCollection.schema)}</code></pre>
+        <JsonViewer data={collectionsStore.currentCollection.schema} />
       </Card>
     {/if}
 
     <!-- Indexes -->
     {#if collectionsStore.currentCollection.indexes}
       <Card title="Indexes">
-        <pre class="bg-secondary-50 p-4 rounded-lg overflow-x-auto text-sm"><code>{formatJSON(collectionsStore.currentCollection.indexes)}</code></pre>
+        <JsonViewer data={collectionsStore.currentCollection.indexes} />
       </Card>
     {/if}
 
     <!-- Options -->
     {#if collectionsStore.currentCollection.options}
       <Card title="Options">
-        <pre class="bg-secondary-50 p-4 rounded-lg overflow-x-auto text-sm"><code>{formatJSON(collectionsStore.currentCollection.options)}</code></pre>
+        <JsonViewer data={collectionsStore.currentCollection.options} />
       </Card>
     {/if}
   {:else}

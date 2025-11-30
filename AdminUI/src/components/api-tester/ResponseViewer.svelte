@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Button } from '@components/common'
+  import { Button, JsonViewer } from '@components/common'
 
   interface Props {
     status?: number
@@ -32,13 +32,12 @@
     return 'secondary'
   })
 
-  const formattedBody = $derived.by(() => {
-    if (!body) return ''
+  const parsedBody = $derived.by(() => {
+    if (!body) return null
     try {
-      const parsed = JSON.parse(body)
-      return JSON.stringify(parsed, null, 2)
+      return JSON.parse(body)
     } catch {
-      return body
+      return null
     }
   })
 
@@ -138,8 +137,10 @@
       <div class="p-4">
         {#if activeTab === 'body'}
           <!-- Response Body -->
-          {#if body}
-            <pre class="bg-secondary-900 text-secondary-100 p-4 rounded-lg overflow-x-auto text-sm font-mono max-h-96 overflow-y-auto">{formattedBody}</pre>
+          {#if parsedBody !== null}
+            <JsonViewer data={parsedBody} theme="dark" maxHeight="24rem" />
+          {:else if body}
+            <pre class="bg-secondary-900 text-secondary-100 p-4 rounded-lg overflow-x-auto text-sm font-mono max-h-96 overflow-y-auto">{body}</pre>
           {:else}
             <p class="text-sm text-secondary-500 text-center py-8">No response body</p>
           {/if}

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Subscription } from '@lib/types'
-  import { Button, Input, Badge, Alert } from '@components/common'
+  import { Button, Badge, Alert } from '@components/common'
   import { formatRelativeTime } from '@lib/utils'
 
   interface Props {
@@ -78,7 +78,7 @@
         </Alert>
       {/if}
 
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div class="space-y-4">
         <div>
           <label for="subscription-collection" class="block text-sm font-medium text-secondary-700 mb-1">
             Collection
@@ -86,7 +86,7 @@
           <select
             id="subscription-collection"
             bind:value={selectedCollection}
-            class="block w-full rounded-lg border border-secondary-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            class="block w-full rounded-lg border border-secondary-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={!isConnected}
           >
             <option value="">Select a collection</option>
@@ -98,14 +98,15 @@
 
         <div>
           <label for="subscription-document-id" class="block text-sm font-medium text-secondary-700 mb-1">
-            Document ID (Optional)
+            Document ID <span class="text-secondary-400 font-normal">(optional)</span>
           </label>
-          <Input
+          <input
             id="subscription-document-id"
             type="text"
             bind:value={documentId}
             placeholder="Leave empty for all documents"
             disabled={!isConnected}
+            class="block w-full rounded-lg border border-secondary-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
           />
         </div>
       </div>
@@ -143,19 +144,24 @@
       {:else}
         <div class="space-y-2">
           {#each subscriptions as subscription (subscription.id)}
-            <div class="flex items-center justify-between p-3 bg-secondary-50 rounded-lg">
-              <div class="flex items-center space-x-3">
-                <div class="flex-shrink-0">
-                  <div class="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+            <div class="flex items-center gap-3 p-3 bg-secondary-50 rounded-lg">
+              <!-- Status indicator -->
+              <div class="flex-shrink-0">
+                <div class="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+              </div>
+
+              <!-- Subscription info -->
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium text-secondary-900 truncate">
+                  {getSubscriptionLabel(subscription)}
                 </div>
-                <div>
-                  <div class="text-sm font-medium text-secondary-900">
-                    {getSubscriptionLabel(subscription)}
-                  </div>
-                  <div class="text-xs text-secondary-500">
-                    Subscribed {formatRelativeTime(subscription.createdAt)}
-                  </div>
+                <div class="text-xs text-secondary-500 mt-0.5">
+                  Subscribed {formatRelativeTime(subscription.createdAt)}
                 </div>
+              </div>
+
+              <!-- Badge -->
+              <div class="flex-shrink-0">
                 {#if subscription.documentId}
                   <Badge variant="info" size="sm">Document</Badge>
                 {:else}
@@ -163,13 +169,14 @@
                 {/if}
               </div>
 
+              <!-- Unsubscribe button -->
               <button
                 type="button"
-                class="p-1 text-secondary-400 hover:text-red-600 transition-colors"
+                class="flex-shrink-0 p-1.5 text-secondary-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                 onclick={() => handleUnsubscribe(subscription)}
                 title="Unsubscribe"
               >
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>

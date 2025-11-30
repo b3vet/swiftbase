@@ -49,18 +49,21 @@ public actor BroadcastService {
             return
         }
 
-        // Send to all matching connections
+        // Get unique connection IDs (a connection may have multiple matching subscriptions)
+        let uniqueConnectionIds = Set(matchingSubscriptions.map { $0.connectionId })
+
+        // Send to each connection only once
         var sentCount = 0
-        for subscription in matchingSubscriptions {
+        for connectionId in uniqueConnectionIds {
             do {
-                try await hub.send(message: message, to: subscription.connectionId)
+                try await hub.send(message: message, to: connectionId)
                 sentCount += 1
             } catch {
-                logger.error("Failed to send message to connection \(subscription.connectionId)", error: error)
+                logger.error("Failed to send message to connection \(connectionId)", error: error)
             }
         }
 
-        logger.info("Broadcast \(event.event.rawValue) event for '\(event.collection):\(event.documentId)' to \(sentCount) subscribers")
+        logger.info("Broadcast \(event.event.rawValue) event for '\(event.collection):\(event.documentId)' to \(sentCount) connections")
     }
 
     /// Broadcast a create event
@@ -86,12 +89,12 @@ public actor BroadcastService {
     }
 
     /// Broadcast a delete event
-    public func broadcastDelete(collection: String, documentId: String) async {
+    public func broadcastDelete(collection: String, documentId: String, document: [String: Any]?) async {
         let event = RealtimeEvent(
             event: .delete,
             collection: collection,
             documentId: documentId,
-            document: nil
+            document: document
         )
         await broadcast(event: event)
     }
