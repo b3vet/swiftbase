@@ -387,9 +387,11 @@ public actor QueryService {
         }
 
         let params = request.params?.mapValues { $0.value } ?? [:]
+
+        // Execute custom query - returns AnyCodable which is Sendable
         let result = try await customQuery.execute(params, dbService)
 
-        return QueryResponse(success: true, data: AnyCodable(result))
+        return QueryResponse(success: true, data: result)
     }
 
     // MARK: - Custom Query Registration
@@ -413,15 +415,16 @@ public actor QueryService {
 }
 
 /// Protocol for custom queries
+/// Note: Returns AnyCodable (which is @unchecked Sendable) to satisfy Swift 6 concurrency requirements
 public protocol CustomQuery: Sendable {
-    func execute(_ params: [String: Any], _ dbService: DatabaseService) async throws -> Any
+    func execute(_ params: [String: Any], _ dbService: DatabaseService) async throws -> AnyCodable
 }
 
 /// Example custom query implementation
 public struct CustomQueryExample: CustomQuery {
     public init() {}
 
-    public func execute(_ params: [String: Any], _ dbService: DatabaseService) async throws -> Any {
+    public func execute(_ params: [String: Any], _ dbService: DatabaseService) async throws -> AnyCodable {
         // Example: Get top N documents from a collection
         let collection = params["collection"] as? String ?? "default"
         let limit = params["limit"] as? Int ?? 10
@@ -447,6 +450,6 @@ public struct CustomQueryExample: CustomQuery {
             }
         }
 
-        return sendableData.map { $0.dict }
+        return AnyCodable(sendableData.map { $0.dict })
     }
 }

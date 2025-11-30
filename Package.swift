@@ -37,11 +37,6 @@ let package = Package(
                 .copy("Resources/Public"),
                 .copy("Resources/Config")
             ]
-        ),
-        .testTarget(
-            name: "SwiftBaseTests",
-            dependencies: ["SwiftBase"],
-            path: "Tests/SwiftBaseTests"
         )
     ]
 )

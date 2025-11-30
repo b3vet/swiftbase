@@ -56,7 +56,14 @@ public struct AdminAuthController: Sendable {
         }
 
         // Verify password
-        let isValid = try await passwordService.verify(password, against: admin.passwordHash)
+        let isValid: Bool
+        do {
+            isValid = try await passwordService.verify(password, against: admin.passwordHash)
+        } catch {
+            // Password hash format error - treat as invalid credentials
+            logger.warning("Password verification error for admin \(username): \(error)")
+            throw HTTPError(.unauthorized, message: "Invalid credentials")
+        }
         guard isValid else {
             throw HTTPError(.unauthorized, message: "Invalid credentials")
         }

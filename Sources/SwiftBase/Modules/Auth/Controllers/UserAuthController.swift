@@ -115,7 +115,14 @@ public struct UserAuthController: Sendable {
         }
 
         // Verify password
-        let isValid = try await passwordService.verify(password, against: user.passwordHash)
+        let isValid: Bool
+        do {
+            isValid = try await passwordService.verify(password, against: user.passwordHash)
+        } catch {
+            // Password hash format error - treat as invalid credentials
+            logger.warning("Password verification error for user \(email): \(error)")
+            throw HTTPError(.unauthorized, message: "Invalid credentials")
+        }
         guard isValid else {
             throw HTTPError(.unauthorized, message: "Invalid credentials")
         }

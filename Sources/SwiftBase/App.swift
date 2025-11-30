@@ -247,17 +247,23 @@ public struct App {
             .post("/api/admin/users/:id/verify-email", use: userController.verifyEmail)
             .post("/api/admin/users/:id/revoke-sessions", use: userController.revokeSessions)
 
-        // Admin UI static file handler
+        // Admin UI static file handler with compression support
         let adminHandler = AdminUIHandler(logger: logger)
+        let compressionMiddleware = CompressionMiddleware<BasicWebSocketRequestContext>(logger: logger)
 
-        // Single handler for all admin paths
+        // Single handler for all admin paths with compression
         // Handles: /admin, /admin/, /admin/*, /admin/**
-        router.get("/admin") { request, context in
-            try await adminHandler.handle(request: request, context: context)
-        }
-        router.get("/admin/**") { request, context in
-            try await adminHandler.handle(request: request, context: context)
-        }
+        router.group()
+            .add(middleware: compressionMiddleware)
+            .get("/admin") { request, context in
+                try await adminHandler.handle(request: request, context: context)
+            }
+
+        router.group()
+            .add(middleware: compressionMiddleware)
+            .get("/admin/**") { request, context in
+                try await adminHandler.handle(request: request, context: context)
+            }
 
         // WebSocket endpoint for realtime subscriptions
         router.ws("/api/realtime") { inbound, outbound, context in
@@ -277,8 +283,7 @@ public struct App {
             }
 
         // Create application with WebSocket support
-        // Use buildApplication to ensure WebSocket upgrades are handled correctly
-        let app = buildApplication(
+        let app = Application(
             router: router,
             configuration: .init(
                 address: .hostname(host, port: port)

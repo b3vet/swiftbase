@@ -5,9 +5,28 @@ import NIOCore
 
 /// Dedicated handler for AdminUI static files
 /// Uses explicit switch-based routing to avoid routing conflicts
+/// Includes optimizations: preload hints, cache headers, and resource prioritization
 public struct AdminUIHandler: Sendable {
     private let publicDirectory: String
     private let logger: LoggerService
+
+    /// Cached list of critical assets for preloading (CSS and JS bundles)
+    private let criticalAssets: [PreloadAsset]
+
+    /// Asset preload configuration
+    private struct PreloadAsset: Sendable {
+        let path: String
+        let type: String  // "style", "script", "font"
+        let crossorigin: Bool
+
+        var linkHeader: String {
+            var link = "</admin/\(path)>; rel=preload; as=\(type)"
+            if crossorigin {
+                link += "; crossorigin"
+            }
+            return link
+        }
+    }
 
     public init(
         publicDirectory: String = "Sources/SwiftBase/Resources/Public",
@@ -15,6 +34,36 @@ public struct AdminUIHandler: Sendable {
     ) {
         self.publicDirectory = publicDirectory
         self.logger = logger
+
+        // Discover critical assets for preloading
+        self.criticalAssets = Self.discoverCriticalAssets(in: publicDirectory, logger: logger)
+    }
+
+    /// Discover CSS and JS assets in the assets directory for preloading
+    private static func discoverCriticalAssets(in directory: String, logger: LoggerService) -> [PreloadAsset] {
+        var assets: [PreloadAsset] = []
+        let assetsPath = "\(directory)/assets"
+
+        guard let contents = try? FileManager.default.contentsOfDirectory(atPath: assetsPath) else {
+            logger.debug("No assets directory found for preloading")
+            return []
+        }
+
+        for file in contents {
+            if file.hasSuffix(".css") {
+                assets.append(PreloadAsset(path: "assets/\(file)", type: "style", crossorigin: false))
+                logger.debug("Discovered CSS asset for preload: \(file)")
+            } else if file.hasSuffix(".js") && !file.contains("chunk") {
+                // Only preload main JS bundles, not chunks (they load on demand)
+                assets.append(PreloadAsset(path: "assets/\(file)", type: "script", crossorigin: false))
+                logger.debug("Discovered JS asset for preload: \(file)")
+            } else if file.hasSuffix(".woff2") || file.hasSuffix(".woff") {
+                assets.append(PreloadAsset(path: "assets/\(file)", type: "font", crossorigin: true))
+                logger.debug("Discovered font asset for preload: \(file)")
+            }
+        }
+
+        return assets
     }
 
     /// Main handler - routes all admin requests with clear switch logic
@@ -107,13 +156,35 @@ public struct AdminUIHandler: Sendable {
         headers[.contentType] = contentType
         headers[.contentLength] = "\(data.count)"
 
-        // Cache control
+        // Cache control based on file type
         if relativePath.hasPrefix("assets/") {
             // Cache assets for 1 year (they have hashed filenames)
             headers[.cacheControl] = "public, max-age=31536000, immutable"
-        } else {
-            // Don't cache index.html and other root files
+
+            // Add priority hints for critical resources
+            if relativePath.hasSuffix(".css") {
+                headers[HTTPField.Name("X-Content-Type-Options")!] = "nosniff"
+            }
+        } else if relativePath == "index.html" {
+            // Don't cache index.html
             headers[.cacheControl] = "no-cache, no-store, must-revalidate"
+            headers[HTTPField.Name("Pragma")!] = "no-cache"
+            headers[HTTPField.Name("Expires")!] = "0"
+
+            // Add preload hints for critical assets via Link header
+            if !criticalAssets.isEmpty {
+                let linkHeaders = criticalAssets.map { $0.linkHeader }.joined(separator: ", ")
+                headers[HTTPField.Name("Link")!] = linkHeaders
+                logger.debug("Added preload hints for \(criticalAssets.count) assets")
+            }
+
+            // Add security headers for HTML
+            headers[HTTPField.Name("X-Frame-Options")!] = "SAMEORIGIN"
+            headers[HTTPField.Name("X-Content-Type-Options")!] = "nosniff"
+            headers[HTTPField.Name("Referrer-Policy")!] = "strict-origin-when-cross-origin"
+        } else {
+            // Other root files - short cache
+            headers[.cacheControl] = "public, max-age=3600"
         }
 
         logger.info("Served \(relativePath) (\(data.count) bytes, \(contentType))")
@@ -123,5 +194,12 @@ public struct AdminUIHandler: Sendable {
             headers: headers,
             body: .init(byteBuffer: ByteBuffer(data: data))
         )
+    }
+
+    /// Refresh critical assets list (call after UI rebuild)
+    public mutating func refreshCriticalAssets() {
+        let newAssets = Self.discoverCriticalAssets(in: publicDirectory, logger: logger)
+        // Note: Since this is a struct, caller needs to reassign
+        logger.info("Refreshed critical assets list: \(newAssets.count) assets discovered")
     }
 }

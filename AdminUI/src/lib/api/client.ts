@@ -186,7 +186,12 @@ class ApiClient {
       if (isJson) {
         try {
           const errorData = await response.json()
-          errorMessage = errorData.error || errorData.message || errorMessage
+          // Handle nested error object: { error: { message, code } }
+          if (errorData.error && typeof errorData.error === 'object') {
+            errorMessage = errorData.error.message || errorMessage
+          } else {
+            errorMessage = errorData.error || errorData.message || errorMessage
+          }
         } catch {
           // Failed to parse error JSON
         }
