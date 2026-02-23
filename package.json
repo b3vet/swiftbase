@@ -1,0 +1,22 @@
+{
+  "name": "swiftbase",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SwiftBase - A single-binary backend platform built with Swift",
+  "scripts": {
+    "build": "turbo build",
+    "build:debug": "turbo build:debug",
+    "dev": "turbo dev",
+    "serve": "turbo serve --filter=@swiftbase/backend",
+    "test": "turbo test",
+    "typecheck": "turbo typecheck",
+    "lint": "turbo lint",
+    "clean": "turbo clean && rm -rf node_modules",
+    "migrate": "turbo migrate --filter=@swiftbase/backend",
+    "seed": "turbo seed --filter=@swiftbase/backend"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.4"
+  },
+  "packageManager": "pnpm@10.15.0"
+}

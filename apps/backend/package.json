@@ -1,0 +1,16 @@
+{
+  "name": "@swiftbase/backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SwiftBase backend server - Built with Swift",
+  "scripts": {
+    "build": "swift build -c release",
+    "build:debug": "swift build",
+    "dev": "swift run swiftbase serve --port 8090",
+    "serve": "swift run swiftbase serve --port 8090",
+    "migrate": "swift run swiftbase migrate",
+    "seed": "swift run swiftbase seed",
+    "typecheck": "swift build",
+    "clean": "swift package clean && rm -rf .build"
+  }
+}

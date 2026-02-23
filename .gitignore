@@ -1,13 +1,16 @@
+# macOS
 .DS_Store
-/.build
-/Packages
+
+# Swift
+apps/backend/.build/
+apps/backend/Packages/
 xcuserdata/
 DerivedData/
 .swiftpm/configuration/registries.json
 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
 .netrc
 
-# SwiftBase specific
+# SwiftBase runtime data
 data/
 *.db
 *.db-shm
@@ -15,16 +18,27 @@ data/
 .env
 config/local.json
 
+# Documentation (private)
 SOW*.md
 
-TestingUtils
+# Testing utilities (private)
+apps/backend/TestingUtils/
 
-**/node_modules
+# Node.js / pnpm
+node_modules/
+.pnpm-store/
 
+# Turborepo
+.turbo/
+
+# Build outputs
+dist/
+coverage/
+.svelte-kit/
+
+# SwiftBase Resources (generated)
 **/Sources/SwiftBase/Resources/Public/**
-
 **/Sources/SwiftBase/Resources/Config/production.json
 
+# Scratch files
 **/scratch*.md
-
-**/coverage

@@ -11,7 +11,10 @@
 
 SwiftBase is a **single-binary backend platform** similar to PocketBase, built entirely in Swift. It provides database, API, authentication, file storage, and realtime capabilities as a self-contained executable.
 
-**Current Status:** ~58% complete (Phases 1-11 done, Phases 12-14 pending)
+This is a **Turborepo monorepo** with the following structure:
+- `apps/backend` - Swift backend server
+- `apps/admin-ui` - Svelte 5 admin dashboard
+- `packages/typescript-sdk` - TypeScript SDK (`@swiftbase/sdk`)
 
 ## Tech Stack
 
@@ -24,54 +27,76 @@ SwiftBase is a **single-binary backend platform** similar to PocketBase, built e
 | Crypto | Swift Crypto 3.10+ | Password hashing |
 | CLI | ArgumentParser 1.5+ | Command-line interface |
 | Admin UI | Svelte 5 + Vite | Embedded web dashboard |
+| SDK | TypeScript | Client SDK for JavaScript/TypeScript |
+| Monorepo | Turborepo + pnpm | Build system and package management |
 
 ## Commands (for user reference)
 
 ```bash
-# Build
+# Install all dependencies (from root)
+pnpm install
+
+# Build all packages
+pnpm build
+
+# Run all tests
+pnpm test
+
+# TypeScript type checking
+pnpm typecheck
+
+# Swift backend (from apps/backend)
+cd apps/backend
 swift build
-
-# Run server
 swift run swiftbase serve --port 8090
-
-# Database
 swift run swiftbase migrate
 swift run swiftbase seed
-swift run swiftbase dump --output backup.db
 
-# Admin UI (from AdminUI/ directory)
-cd AdminUI && pnpm install && pnpm run build
+# Admin UI development (from apps/admin-ui)
+cd apps/admin-ui
+pnpm dev
+
+# SDK development (from packages/typescript-sdk)
+cd packages/typescript-sdk
+pnpm dev
+pnpm test
 ```
 
 ## Project Structure
 
 ```
-Sources/SwiftBase/
-├── App.swift              # Main application, route definitions
-├── main.swift             # Entry point
-├── CLI/Commands/          # serve, migrate, seed, dump
-├── Core/
-│   ├── Errors/            # AppError, DatabaseError, ValidationError
-│   ├── Handlers/          # AdminUIHandler
-│   ├── Middleware/        # CORS, Error, Logging, Validation, Versioning, Compression
-│   └── Services/          # ConfigService, DatabaseService, LoggerService
-├── Database/
-│   ├── Migrations/        # Database migrations (001-005)
-│   └── Seeds/             # DefaultSeeder
-├── Modules/
-│   ├── Auth/              # User/Admin authentication, JWT, Sessions
-│   ├── Collections/       # Dynamic collection management
-│   ├── Query/             # MongoDB-style query engine
-│   ├── Realtime/          # WebSocket subscriptions
-│   └── Storage/           # File upload/download
-└── Resources/
-    ├── Config/            # default.json, production.json
-    └── Public/            # Compiled Svelte admin UI
+swiftbase/
+├── apps/
+│   ├── admin-ui/              # Svelte 5 Admin Dashboard
+│   │   ├── src/
+│   │   ├── package.json
+│   │   └── vite.config.ts
+│   └── backend/               # Swift Backend
+│       ├── Sources/SwiftBase/
+│       │   ├── App.swift
+│       │   ├── main.swift
+│       │   ├── CLI/Commands/
+│       │   ├── Core/
+│       │   ├── Database/
+│       │   ├── Modules/
+│       │   └── Resources/
+│       ├── Tests/
+│       └── Package.swift
+├── packages/
+│   └── typescript-sdk/        # TypeScript SDK (@swiftbase/sdk)
+│       ├── src/
+│       ├── tests/
+│       ├── package.json
+│       └── tsup.config.ts
+├── package.json               # Root workspace
+├── pnpm-workspace.yaml
+├── turbo.json
+└── CLAUDE.md
 ```
 
 ## Architecture
 
-### Module Pattern
+### Module Pattern (Swift Backend)
 Each module has: **Controllers** (HTTP handlers), **Services** (business logic), **Models** (GRDB records)
 
 ### Route Protection
@@ -126,19 +151,29 @@ router.group()
 
 | File | Purpose |
 |------|---------|
-| `App.swift` | Routes, middleware, service initialization |
-| `Core/Services/DatabaseService.swift` | GRDB connection, migrations |
-| `Modules/Query/Services/QueryService.swift` | Query execution |
-| `Modules/Auth/Services/JWTService.swift` | Token handling |
-| `Modules/Realtime/WebSocketHub.swift` | WebSocket connections |
+| `apps/backend/Sources/SwiftBase/App.swift` | Routes, middleware, service initialization |
+| `apps/backend/Sources/SwiftBase/Core/Services/DatabaseService.swift` | GRDB connection, migrations |
+| `apps/backend/Sources/SwiftBase/Modules/Query/Services/QueryService.swift` | Query execution |
+| `apps/backend/Sources/SwiftBase/Modules/Auth/Services/JWTService.swift` | Token handling |
+| `apps/backend/Sources/SwiftBase/Modules/Realtime/WebSocketHub.swift` | WebSocket connections |
+| `packages/typescript-sdk/src/client.ts` | SDK main client |
+| `packages/typescript-sdk/src/modules/` | SDK modules (auth, query, realtime, storage, collections) |
 
 ## Code Conventions
 
+### Swift (Backend)
 - Swift 6.0 with strict concurrency
 - Actors for thread-safe state
 - async/await throughout
 - GRDB records: `Codable`, `FetchableRecord`, `PersistableRecord`
 
-## SOW Document
+### TypeScript (SDK)
+- Strict mode with `exactOptionalPropertyTypes`
+- ESM primary, CJS for compatibility
+- Vitest for testing
+- tsup for building
 
-See `SOW.md` for full implementation plan and progress tracking.
+## SOW Documents
+
+- `SOW.md` - Swift backend implementation plan
+- `SOW_TS_SDK.md` - TypeScript SDK implementation plan
